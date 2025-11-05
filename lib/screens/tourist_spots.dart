@@ -393,7 +393,7 @@ class _ShillongDetailsScreenState extends State<ShillongDetailsScreen>
           const SizedBox(height: 12),
           _buildDetailCard('Currency', 'Dollars, GBP, Euros'),
           const SizedBox(height: 12),
-          _buildDetailCard('Transportation', 'Taxi, Bus, Auto-rickshaw'),
+          _buildDetailCard('Transportation', 'Taxi, Bus, Metro, Train, Boat'),
         ],
       ),
     );

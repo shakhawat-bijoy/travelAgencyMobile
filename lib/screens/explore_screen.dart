@@ -92,35 +92,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
       'rating': 4.6,
       'reviews': '3.2k',
       'image':
-          'https://images.unsplash.com/photo-1613929633738-596c40b2abb7?w=400',
+          'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
       'description': 'Authentic street food experience in bustling market',
       'price': '\$5-15',
-      'isOpen': true,
-    },
-    {
-      'name': 'Le Grand Hotel Paris',
-      'location': 'Paris, France',
-      'category': 'Hotels',
-      'rating': 4.7,
-      'reviews': '2.5k',
-      'image':
-          'https://images.unsplash.com/photo-1502602898657-3e91760c0341?w=400',
-      'description':
-          'Elegant 5-star hotel near the Eiffel Tower with classic decor.',
-      'price': '300-500',
-      'isOpen': true,
-    },
-    {
-      'name': 'Greenwich Village Coffee',
-      'location': 'New York, USA',
-      'category': 'Cafes',
-      'rating': 4.6,
-      'reviews': '1.2k',
-      'image':
-          'https://images.unsplash.com/photo-1509042239660-1a0e5f84a83c?w=400',
-      'description':
-          'Cozy neighborhood cafe known for artisanal espresso and pastries.',
-      'price': '10-25',
       'isOpen': true,
     },
     {
@@ -130,7 +104,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       'rating': 4.8,
       'reviews': '10.5k',
       'image':
-          'https://images.unsplash.com/photo-1552832230-c0197936081a?w=400',
+          'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
       'description': 'Guided tour of the ancient Roman amphitheater.',
       'price': '40-80',
       'isOpen': true,
@@ -142,7 +116,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       'rating': 4.7,
       'reviews': '4.1k',
       'image':
-          'https://images.unsplash.com/photo-1567119001377-690E8c874695?w=400',
+          'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
       'description':
           'Vibrant street food stalls offering authentic Thai cuisine.',
       'price': '5-20',
@@ -155,7 +129,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       'rating': 4.9,
       'reviews': '3.1k',
       'image':
-          'https://images.unsplash.com/photo-1568323214312-32d56c00d437?w=400',
+          'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=400',
       'description':
           'Multi-day cruise viewing ancient temples between Luxor and Aswan.',
       'price': '400-800',
@@ -168,7 +142,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       'rating': 4.8,
       'reviews': '12.2k',
       'image':
-          'https://images.unsplash.com/photo-1523049673857-C2ed8f139845?w=400',
+          'https://images.unsplash.com/photo-1523482580672-f109ba8cb9be?w=400',
       'description':
           'Iconic multi-venue performing arts center on Sydney Harbour.',
       'price': '30-70',
@@ -194,7 +168,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       'rating': 4.6,
       'reviews': '5.5k',
       'image':
-          'https://images.unsplash.com/photo-1567914041138-0678887b08b1?w=400',
+          'https://images.unsplash.com/photo-1523482580672-f109ba8cb9be?w=400',
       'description':
           'Bustling market with tagine stalls, spices, and handcrafted goods.',
       'price': '5-25',

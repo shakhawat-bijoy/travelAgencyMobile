@@ -108,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
             radius: 24,
             backgroundColor: Colors.amber,
             child: Text(
-              'HM',
+              'M',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -652,7 +652,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'author': 'Allan Walt',
         'views': '5.3k',
         'image':
-            'https://images.unsplash.com/photo-1580837119756-563d608dd119?w=400',
+            'https://images.unsplash.com/photo-1583422409516-2895a77efded?w=400',
       },
       {
         'name': 'Bali, Indonesia',
@@ -660,7 +660,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'author': 'Sarah Chen',
         'views': '8.1k',
         'image':
-            'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=400',
+            'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=400',
       },
       {
         'name': 'Paris, France',
@@ -679,28 +679,28 @@ class _HomeScreenState extends State<HomeScreen> {
             'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400',
       },
       {
-        'name': 'Bali, Indonesia',
-        'subtitle': 'Tropical paradise with stunning beaches...',
-        'author': 'Sarah Chen',
-        'views': '8.1k',
+        'name': 'Dubai, UAE',
+        'subtitle': 'Luxury and modern architecture...',
+        'author': 'Ahmed Hassan',
+        'views': '7.2k',
         'image':
-            'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=400',
+            'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400',
       },
       {
-        'name': 'Paris, France',
-        'subtitle': 'City of lights and romantic getaways...',
-        'author': 'Michel Dubois',
-        'views': '12.5k',
+        'name': 'London, UK',
+        'subtitle': 'Historic landmarks and vibrant culture...',
+        'author': 'James Smith',
+        'views': '10.1k',
         'image':
-            'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=400',
+            'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=400',
       },
       {
-        'name': 'Tokyo, Japan',
-        'subtitle': 'Modern metropolis meets ancient culture...',
-        'author': 'Yuki Tanaka',
-        'views': '9.7k',
+        'name': 'New York, USA',
+        'subtitle': 'The city that never sleeps...',
+        'author': 'John Davis',
+        'views': '15.3k',
         'image':
-            'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400',
+            'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400',
       },
     ];
 
