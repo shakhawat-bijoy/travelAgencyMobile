@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../home.dart';
-import 'register.dart';
 
 class LoginScreen extends StatefulWidget {
   static const routeName = '/login';
@@ -49,8 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _submit() {
     if (_form.currentState?.validate() ?? false) {
-      // TODO: Implement actual authentication
-      Navigator.pushReplacementNamed(context, HomeScreen.routeName);
+      Navigator.pushReplacementNamed(context, '/home');
     }
   }
 
@@ -134,9 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {
-                          // TODO: Implement forgot password
-                        },
+                        onPressed: () {},
                         child: const Text('Forgot Password?'),
                       ),
                     ),
@@ -148,6 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -169,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextButton(
                           onPressed: () => Navigator.pushReplacementNamed(
                             context,
-                            RegisterScreen.routeName,
+                            '/register',
                           ),
                           child: const Text(
                             'Sign Up',

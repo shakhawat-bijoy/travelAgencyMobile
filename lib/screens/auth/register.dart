@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'login.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const routeName = '/register';
@@ -90,8 +89,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _submit() {
     if ((_form.currentState?.validate() ?? false) && acceptTerms) {
-      // TODO: Implement registration logic
-      Navigator.pushReplacementNamed(context, LoginScreen.routeName);
+      Navigator.pushReplacementNamed(context, '/login');
     } else if (!acceptTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -264,6 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onPressed: _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -283,10 +282,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         const Text('Already have an account? '),
                         TextButton(
-                          onPressed: () => Navigator.pushReplacementNamed(
-                            context,
-                            LoginScreen.routeName,
-                          ),
+                          onPressed: () =>
+                              Navigator.pushReplacementNamed(context, '/login'),
                           child: const Text(
                             'Sign In',
                             style: TextStyle(fontWeight: FontWeight.w600),
