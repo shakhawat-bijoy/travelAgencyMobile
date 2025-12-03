@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tourist_spots.dart';
+import 'hotel_detail_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -603,16 +604,75 @@ class _ExploreScreenState extends State<ExploreScreen> {
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ShillongDetailsScreen(
-                  destinationName: destination['name'],
-                  imageUrl: destination['image'],
-                  location: destination['location'],
+            // Navigate based on category
+            if (destination['category'] == 'Hotels') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HotelDetailScreen(
+                    hotelName: destination['name'],
+                    location: destination['location'],
+                    rating: destination['rating'],
+                    reviews: int.parse(
+                      destination['reviews'].replaceAll(RegExp(r'[^0-9]'), ''),
+                    ),
+                    imageUrl: destination['image'],
+                    price: _extractPrice(destination['price']),
+                    type: 'hotel',
+                    description: destination['description'],
+                  ),
                 ),
-              ),
-            );
+              );
+            } else if (destination['category'] == 'Restaurants' ||
+                destination['category'] == 'Cheap Eats') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HotelDetailScreen(
+                    hotelName: destination['name'],
+                    location: destination['location'],
+                    rating: destination['rating'],
+                    reviews: int.parse(
+                      destination['reviews'].replaceAll(RegExp(r'[^0-9]'), ''),
+                    ),
+                    imageUrl: destination['image'],
+                    price: _extractPrice(destination['price']),
+                    type: 'restaurant',
+                    description: destination['description'],
+                  ),
+                ),
+              );
+            } else if (destination['category'] == 'Cafes') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HotelDetailScreen(
+                    hotelName: destination['name'],
+                    location: destination['location'],
+                    rating: destination['rating'],
+                    reviews: int.parse(
+                      destination['reviews'].replaceAll(RegExp(r'[^0-9]'), ''),
+                    ),
+                    imageUrl: destination['image'],
+                    price: _extractPrice(destination['price']),
+                    type: 'cafe',
+                    description: destination['description'],
+                  ),
+                ),
+              );
+            } else {
+              // For attractions, use the tourist spots screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ShillongDetailsScreen(
+                    destinationName: destination['name'],
+                    imageUrl: destination['image'],
+                    location: destination['location'],
+                  ),
+                ),
+              );
+            }
           },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -808,5 +868,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
       default:
         return Icons.explore;
     }
+  }
+
+  double _extractPrice(String priceString) {
+    // Extract first number from price string like "$50-100" or "$15-30"
+    final match = RegExp(r'\d+').firstMatch(priceString);
+    if (match != null) {
+      return double.parse(match.group(0)!);
+    }
+    return 50.0; // default price
   }
 }

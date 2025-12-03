@@ -130,7 +130,7 @@ class _SavedScreenState extends State<SavedScreen> {
 
   Widget _buildSavedList() {
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 100),
       itemCount: savedPlaces.length,
       itemBuilder: (context, index) {
         return _buildSavedCard(savedPlaces[index], index);

@@ -1,3 +1,4 @@
 {
-  "avdmanager.sdkPath": "d:\\Mobile App Development\\travelAgency\\travelagency\\lib"
+  "avdmanager.sdkPath": "d:\\Mobile App Development\\travelAgency\\travelagency\\lib",
+  "cmake.ignoreCMakeListsMissing": true
 }

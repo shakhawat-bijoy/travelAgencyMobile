@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'tourist_spots.dart';
 import 'saved_screen.dart';
@@ -5,6 +7,9 @@ import 'add_trip_screen.dart';
 import 'notifications_screen.dart';
 import 'explore_screen.dart';
 import 'profile_screen.dart';
+import 'hotel_detail_screen.dart';
+import 'resort_details_screen.dart';
+import 'hotels_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   static const routeName = '/home';
@@ -37,112 +42,169 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1628),
+      backgroundColor: const Color(0xFF061024),
       body: _selectedIndex == 0
           ? SafeArea(child: _buildHomePage())
           : _buildPlaceholder(),
       bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: _selectedIndex == 0
-          ? MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: FloatingActionButton(
-                onPressed: () => setState(() => _selectedIndex = 2),
-                backgroundColor: Colors.blue[600],
-                child: const Icon(Icons.add, color: Colors.white),
-              ),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
   Widget _buildPlaceholder() {
+    Widget screen;
     switch (_selectedIndex) {
       case 1:
-        return const SavedScreen();
+        screen = const SavedScreen();
+        break;
       case 2:
-        return const AddTripScreen();
+        screen = const AddTripScreen();
+        break;
       case 3:
-        return const NotificationsScreen();
+        screen = const NotificationsScreen();
+        break;
       case 4:
-        return const ProfileScreen();
+        screen = const ProfileScreen();
+        break;
       default:
-        return const SizedBox();
+        screen = const SizedBox();
     }
+    return SafeArea(bottom: false, child: screen);
   }
 
   Widget _buildHomePage() {
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           _buildSearchBar(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           _buildTabs(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _buildFeaturedCarousel(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           _buildQuickActions(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           _buildFeaturedGuidesCarousel(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           _buildPopularDestinations(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
+          _buildFeaturedHotels(),
+          const SizedBox(height: 22),
+          _buildFeaturedRestaurants(),
+          const SizedBox(height: 22),
           _buildTrendingPlacesCarousel(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           _buildSpecialOffers(),
-          const SizedBox(height: 100),
+          const SizedBox(height: 120),
         ],
+      ),
+    );
+  }
+
+  // Reusable iOS-like glass container
+  Widget _glass({
+    required Widget child,
+    double borderRadius = 16,
+    double blur = 12,
+    Color? color,
+    EdgeInsetsGeometry? padding,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: color ?? Colors.white.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          child: child,
+        ),
       ),
     );
   }
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.amber,
-            child: Text(
-              'M',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+          _glass(
+            borderRadius: 40,
+            blur: 10,
+            padding: const EdgeInsets.all(2),
+            child: const CircleAvatar(
+              radius: 26,
+              backgroundColor: Colors.transparent,
+              child: Text(
+                'M',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Hi Heer',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                Text(
-                  'Good Afternoon',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 14,
                   ),
                 ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Expanded(
+                      child: const Text(
+                        'Find your next adventure',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _glass(
+                      borderRadius: 12,
+                      blur: 6,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            color: Colors.white.withOpacity(0.85),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Milano',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
-            ),
-          ),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: IconButton(
-              onPressed: () {},
-              icon: const Icon(
-                Icons.notifications_outlined,
-                color: Colors.white,
-              ),
             ),
           ),
         ],
@@ -152,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
@@ -162,31 +224,30 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(builder: (context) => const ExploreScreen()),
             );
           },
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A2642),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.search,
-                    color: Colors.white.withValues(alpha: 0.7),
+          child: _glass(
+            borderRadius: 14,
+            blur: 8,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.search, color: Colors.white.withOpacity(0.75)),
+                const SizedBox(width: 12),
+                Text(
+                  'Discover a city, landmark or guide',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 15,
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Discover a city',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 16,
-                    ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () {},
+                  child: Icon(
+                    Icons.tune,
+                    color: Colors.white.withOpacity(0.75),
                   ),
-                  const Spacer(),
-                  Icon(Icons.tune, color: Colors.white.withValues(alpha: 0.7)),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -196,13 +257,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTabs() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Row(
         children: [
           _buildTab('Popular', 0),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           _buildTab('Most Viewed', 1),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           _buildTab('Recommended', 2),
         ],
       ),
@@ -223,19 +284,29 @@ class _HomeScreenState extends State<HomeScreen> {
             curve: Curves.easeInOut,
           );
         }),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.blue[600] : const Color(0xFF1A2642),
-            borderRadius: BorderRadius.circular(20),
+            color: isSelected
+                ? Colors.blue[400]
+                : Colors.white.withOpacity(0.03),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.blue[400]!.withOpacity(0.18),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
           ),
           child: Text(
             text,
             style: TextStyle(
-              color: isSelected
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.6),
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? Colors.white : Colors.white.withOpacity(0.65),
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),
@@ -283,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
           'location': 'Italy',
           'image':
               'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800',
-          'description': 'Tropical Paradise',
+          'description': 'Historic Wonders',
           'rating': '4.9',
           'reviews': '5.2k',
         },
@@ -345,7 +416,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Stack(
           children: [
             SizedBox(
-              height: 240,
+              height: 260,
               child: PageView.builder(
                 controller: _featuredPageController,
                 onPageChanged: (index) {
@@ -357,9 +428,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   final destination = currentDestinations[index];
                   return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    margin: const EdgeInsets.symmetric(horizontal: 18),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.45),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                       image: DecorationImage(
                         image: NetworkImage(destination['image']!),
                         fit: BoxFit.cover,
@@ -367,15 +445,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: Stack(
                       children: [
+                        // subtle dark gradient
                         Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(18),
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withValues(alpha: 0.7),
+                                Colors.black.withOpacity(0.6),
                               ],
                             ),
                           ),
@@ -387,16 +466,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
                               onTap: () {},
-                              child: Container(
+                              child: _glass(
+                                borderRadius: 24,
+                                blur: 6,
                                 padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
                                 child: const Icon(
                                   Icons.favorite_border,
-                                  color: Colors.black,
-                                  size: 20,
+                                  color: Colors.white,
+                                  size: 18,
                                 ),
                               ),
                             ),
@@ -412,11 +489,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               Text(
                                 destination['description']!,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 12,
+                                  color: Colors.white.withOpacity(0.88),
+                                  fontSize: 13,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 6),
                               Row(
                                 children: [
                                   Expanded(
@@ -424,21 +501,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                       destination['name']!,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 24,
+                                        fontSize: 26,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  Container(
+                                  _glass(
+                                    borderRadius: 12,
+                                    blur: 6,
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
+                                      horizontal: 10,
+                                      vertical: 6,
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -448,23 +521,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                           color: Colors.amber,
                                           size: 14,
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: 6),
                                         Text(
                                           destination['rating']!,
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: 6),
                                         Text(
                                           '(${destination['reviews']})',
                                           style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.8,
+                                            color: Colors.white.withOpacity(
+                                              0.85,
                                             ),
-                                            fontSize: 10,
+                                            fontSize: 11,
                                           ),
                                         ),
                                       ],
@@ -492,11 +564,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
+                                      horizontal: 14,
+                                      vertical: 8,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: Colors.blue[400],
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
@@ -505,16 +577,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Text(
                                           'Explore ${destination['name']}',
                                           style: const TextStyle(
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: 6),
                                         const Icon(
                                           Icons.arrow_forward,
                                           size: 16,
-                                          color: Colors.black,
+                                          color: Colors.white,
                                         ),
                                       ],
                                     ),
@@ -530,79 +601,59 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
-            // Left navigation button
+            // Left navigation
             if (_currentFeaturedCarouselIndex > 0)
               Positioned(
-                left: 10,
+                left: 8,
                 top: 0,
                 bottom: 0,
                 child: Center(
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        _featuredPageController.previousPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.chevron_left,
-                          color: Colors.black,
-                          size: 24,
-                        ),
+                  child: GestureDetector(
+                    onTap: () {
+                      _featuredPageController.previousPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_left,
+                        color: Colors.black,
+                        size: 24,
                       ),
                     ),
                   ),
                 ),
               ),
-            // Right navigation button
+            // Right navigation
             if (_currentFeaturedCarouselIndex < currentDestinations.length - 1)
               Positioned(
-                right: 10,
+                right: 8,
                 top: 0,
                 bottom: 0,
                 child: Center(
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        _featuredPageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.chevron_right,
-                          color: Colors.black,
-                          size: 24,
-                        ),
+                  child: GestureDetector(
+                    onTap: () {
+                      _featuredPageController.nextPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.black,
+                        size: 24,
                       ),
                     ),
                   ),
@@ -610,31 +661,28 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
             currentDestinations.length,
-            (index) => MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  _featuredPageController.animateToPage(
-                    index,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: _currentFeaturedCarouselIndex == index ? 24 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _currentFeaturedCarouselIndex == index
-                        ? Colors.blue[600]
-                        : Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+            (index) => GestureDetector(
+              onTap: () {
+                _featuredPageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+                width: _currentFeaturedCarouselIndex == index ? 28 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: _currentFeaturedCarouselIndex == index
+                      ? Colors.blue[400]
+                      : Colors.white.withOpacity(0.24),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
             ),
@@ -1093,7 +1141,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () {},
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ResortDetailsScreen(
+                resortName: name,
+                location: 'Popular Destination',
+                imageUrl: image,
+                rating: 4.8,
+              ),
+            ),
+          );
+        },
         child: Container(
           margin: const EdgeInsets.only(right: 12),
           child: Column(
@@ -1169,19 +1229,35 @@ class _HomeScreenState extends State<HomeScreen> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () {},
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A2642),
-            borderRadius: BorderRadius.circular(12),
-          ),
+        onTap: () {
+          if (title == 'Hotels') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const HotelDetailScreen(
+                  hotelName: 'Star Pacific Sylhet',
+                  location: 'Sylhet, Bangladesh',
+                  rating: 4.8,
+                  reviews: 156,
+                  imageUrl:
+                      'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
+                  price: 120,
+                  type: 'hotel',
+                ),
+              ),
+            );
+          }
+        },
+        child: _glass(
+          borderRadius: 12,
+          blur: 6,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
+                  color: color.withOpacity(0.18),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -1192,7 +1268,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1456,16 +1532,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           const Icon(Icons.star, color: Colors.amber, size: 14),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Flexible(
                             child: Text(
                               place['rating']!,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: Colors.white.withOpacity(0.75),
                                 fontSize: 12,
                               ),
                             ),
@@ -1474,6 +1550,487 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeaturedHotels() {
+    final hotels = [
+      {
+        'name': 'Star Pacific Sylhet',
+        'location': 'Sylhet, Bangladesh',
+        'rating': 4.8,
+        'reviews': 156,
+        'price': 120,
+        'image':
+            'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400',
+      },
+      {
+        'name': 'Grand Luxury Hotel',
+        'location': 'Dhaka, Bangladesh',
+        'rating': 4.6,
+        'reviews': 203,
+        'price': 95,
+        'image':
+            'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400',
+      },
+      {
+        'name': 'Ocean View Resort',
+        'location': 'Cox\'s Bazar, Bangladesh',
+        'rating': 4.9,
+        'reviews': 312,
+        'price': 150,
+        'image':
+            'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400',
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Featured Hotels',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const HotelsListScreen(category: 'hotel'),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'View all',
+                    style: TextStyle(color: Colors.blue[400]),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 240,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: hotels.length,
+            itemBuilder: (context, index) {
+              return _buildHotelCard(hotels[index]);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHotelCard(Map<String, dynamic> hotel) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HotelDetailScreen(
+                hotelName: hotel['name'],
+                location: hotel['location'],
+                rating: hotel['rating'],
+                reviews: hotel['reviews'],
+                imageUrl: hotel['image'],
+                price: hotel['price'].toDouble(),
+                type: 'hotel',
+              ),
+            ),
+          );
+        },
+        child: Container(
+          width: 280,
+          margin: const EdgeInsets.only(right: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2642),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    height: 140,
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
+                      image: DecorationImage(
+                        image: NetworkImage(hotel['image']),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            hotel['rating'].toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hotel['name'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          color: Colors.white.withOpacity(0.6),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            hotel['location'],
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '\$${hotel['price']}/night',
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${hotel['reviews']} reviews',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeaturedRestaurants() {
+    final restaurants = [
+      {
+        'name': 'City Hut Family Dhaba',
+        'location': 'Sylhet, Bangladesh',
+        'rating': 4.9,
+        'reviews': 234,
+        'price': 25,
+        'type': 'restaurant',
+        'image':
+            'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
+      },
+      {
+        'name': 'Panshi Restaurant',
+        'location': 'Dhaka, Bangladesh',
+        'rating': 4.7,
+        'reviews': 189,
+        'price': 30,
+        'type': 'restaurant',
+        'image':
+            'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=400',
+      },
+      {
+        'name': 'Cafe Mango',
+        'location': 'Cox\'s Bazar, Bangladesh',
+        'rating': 4.8,
+        'reviews': 156,
+        'price': 15,
+        'type': 'cafe',
+        'image':
+            'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400',
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Popular Restaurants & Cafes',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const HotelsListScreen(category: 'all'),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'View all',
+                    style: TextStyle(color: Colors.blue[400]),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 240,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: restaurants.length,
+            itemBuilder: (context, index) {
+              return _buildRestaurantCard(restaurants[index]);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRestaurantCard(Map<String, dynamic> restaurant) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HotelDetailScreen(
+                hotelName: restaurant['name'],
+                location: restaurant['location'],
+                rating: restaurant['rating'],
+                reviews: restaurant['reviews'],
+                imageUrl: restaurant['image'],
+                price: restaurant['price'].toDouble(),
+                type: restaurant['type'],
+              ),
+            ),
+          );
+        },
+        child: Container(
+          width: 280,
+          margin: const EdgeInsets.only(right: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2642),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    height: 140,
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
+                      image: DecorationImage(
+                        image: NetworkImage(restaurant['image']),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: restaurant['type'] == 'cafe'
+                            ? Colors.orange.withOpacity(0.9)
+                            : Colors.green.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        restaurant['type'] == 'cafe' ? 'CAFE' : 'RESTAURANT',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            restaurant['rating'].toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      restaurant['name'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          color: Colors.white.withOpacity(0.6),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            restaurant['location'],
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '\$${restaurant['price']} avg',
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${restaurant['reviews']} reviews',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1511,6 +2068,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.35),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -1549,7 +2113,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   'Book Now',
                                   style: TextStyle(
                                     color: Colors.black,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -1577,7 +2141,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A2642),
+        color: const Color(0xFF0A1628),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),
@@ -1588,15 +2152,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: SafeArea(
         child: Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          height: 80,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildNavItem(Icons.home, 'Home', 0),
+              _buildNavItem(Icons.home_rounded, 'Home', 0, filled: true),
               _buildNavItem(Icons.favorite_border, 'Saved', 1),
-              const SizedBox(width: 60), // Space for FAB
-              _buildNavItem(Icons.notifications_outlined, 'Notifications', 3),
+              _buildCenterAddButton(),
+              _buildNavItem(Icons.notifications_none, 'Notification', 3),
               _buildNavItem(Icons.person_outline, 'Profile', 4),
             ],
           ),
@@ -1605,48 +2169,61 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildCenterAddButton() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedIndex = 2),
+        child: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: Colors.blue[600],
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.add, color: Colors.white, size: 32),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+    IconData icon,
+    String label,
+    int index, {
+    bool filled = false,
+  }) {
     final isSelected = _selectedIndex == index;
     return Flexible(
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           onTap: () => setState(() => _selectedIndex = index),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? Colors.blue[600]!.withValues(alpha: 0.2)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.4),
+                size: 26,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
                   color: isSelected
-                      ? Colors.blue[400]
-                      : Colors.white.withValues(alpha: 0.5),
-                  size: 20,
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.4),
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.blue[400]
-                        : Colors.white.withValues(alpha: 0.5),
-                    fontSize: 9,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),

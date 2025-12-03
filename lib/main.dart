@@ -5,11 +5,13 @@ import 'screens/auth/login.dart';
 import 'screens/auth/register.dart';
 import 'screens/home.dart';
 import 'screens/explore_screen.dart';
-
 import 'screens/saved_screen.dart';
 import 'screens/add_trip_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/hotel_detail_screen.dart';
+import 'screens/hotel_booking_screen.dart';
+import 'screens/resort_details_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -52,6 +54,20 @@ class MyApp extends StatelessWidget {
         '/add-trip': (context) => const AddTripScreen(),
         '/notifications': (context) => const NotificationsScreen(),
         '/profile': (context) => const ProfileScreen(),
+        '/hotel-detail': (context) => const HotelDetailScreen(
+          hotelName: 'Star Pacific Sylhet',
+          location: 'Sylhet, Bangladesh',
+          rating: 4.8,
+          reviews: 156,
+        ),
+        '/hotel-booking': (context) => const HotelBookingScreen(),
+        '/resort-details': (context) => const ResortDetailsScreen(
+          resortName: 'Cox\'s Bazar Beach',
+          location: 'Bangladesh',
+          imageUrl:
+              'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800',
+          rating: 4.8,
+        ),
       },
       // Handle unknown routes
       onUnknownRoute: (settings) {

@@ -74,7 +74,12 @@ class _AddTripScreenState extends State<AddTripScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: 100,
+        ),
         child: Form(
           key: _formKey,
           child: Column(
@@ -117,7 +122,6 @@ class _AddTripScreenState extends State<AddTripScreen> {
               ),
               const SizedBox(height: 32),
               _buildCreateButton(),
-              const SizedBox(height: 20),
             ],
           ),
         ),
