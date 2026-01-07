@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
+import '../models/user_model.dart';
+import '../models/booking.dart';
 import 'hotel_booking_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -15,7 +18,32 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final StorageService _storageService = StorageService();
+  final FirestoreService _firestoreService = FirestoreService();
+  UserModel? _userData;
   bool _isUploading = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final data = await _firestoreService.getUserData(user.uid);
+        setState(() {
+          _userData = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      print('Error fetching user data: $e');
+    }
+  }
 
   // Get user profile from Firebase Auth or use defaults
   Map<String, dynamic> get userProfile {
@@ -29,13 +57,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     };
   }
 
-  Future<void> _pickAndUploadImage() async {
+  Future<void> _pickAndUploadImage({bool isCover = false}) async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
+        maxWidth: isCover ? 1024 : 512,
+        maxHeight: isCover ? 512 : 512,
         imageQuality: 75,
       );
 
@@ -49,16 +77,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final bytes = await image.readAsBytes();
       final extension = image.name.split('.').last;
 
-      // Upload to Storage
-      final downloadUrl = await _storageService.uploadProfileImage(
-        user.uid,
-        bytes,
-        extension,
-      );
+      String downloadUrl;
+      if (isCover) {
+        downloadUrl = await _storageService.uploadCoverImage(
+          user.uid,
+          bytes,
+          extension,
+        );
 
-      // Update Auth Profile
-      await user.updatePhotoURL(downloadUrl);
-      await user.reload();
+        // Optimistic UI update
+        if (mounted) {
+          setState(() {
+            _userData = UserModel(
+              uid: _userData?.uid ?? user.uid,
+              email: _userData?.email ?? user.email ?? '',
+              displayName: _userData?.displayName ?? user.displayName ?? '',
+              profilePhoto: _userData?.profilePhoto ?? '',
+              coverPhoto: downloadUrl,
+              bio: _userData?.bio ?? '',
+              role: _userData?.role ?? 'user',
+              savedTrips: _userData?.savedTrips ?? [],
+            );
+          });
+        }
+
+        // Parallel updates
+        await Future.wait([
+          _firestoreService.updateUserProfile(user.uid, {'coverPhoto': downloadUrl}).catchError((e) {
+            print('Non-fatal error updating cover photo in Firestore: $e');
+            return null;
+          }),
+        ]);
+      } else {
+        downloadUrl = await _storageService.uploadProfileImage(
+          user.uid,
+          bytes,
+          extension,
+        );
+
+        // Optimistic UI update
+        if (mounted) {
+          setState(() {
+            _userData = UserModel(
+              uid: _userData?.uid ?? user.uid,
+              email: _userData?.email ?? user.email ?? '',
+              displayName: _userData?.displayName ?? user.displayName ?? '',
+              profilePhoto: downloadUrl,
+              coverPhoto: _userData?.coverPhoto ?? '',
+              bio: _userData?.bio ?? '',
+              role: _userData?.role ?? 'user',
+              savedTrips: _userData?.savedTrips ?? [],
+            );
+          });
+        }
+
+        // Parallel updates
+        await Future.wait([
+          user.updatePhotoURL(downloadUrl).then((_) => user.reload()).catchError((e) {
+            print('Non-fatal error updating Auth photoURL: $e');
+            return null;
+          }),
+          _firestoreService.updateUserProfile(user.uid, {'profilePhoto': downloadUrl}).catchError((e) {
+            print('Non-fatal error updating profile photo in Firestore: $e');
+            return null;
+          }),
+        ]);
+      }
+
+      // No need to await full refetch if we updated optimistically, 
+      // but let's sync in background if needed.
+      _fetchUserData(); 
 
       setState(() {
         _isUploading = false;
@@ -66,9 +154,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile picture updated!'),
+          SnackBar(
+            content: Text(isCover ? 'Cover photo updated!' : 'Profile picture updated!'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -77,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update profile picture: $e'),
+            content: Text('Failed to update image: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -85,8 +174,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get upcomingBookings {
-    return SavedBookings.bookings;
+  Stream<List<Booking>> get userBookingsStream {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      return _firestoreService.getUserBookings(user.uid);
+    }
+    return Stream.value([]);
   }
 
   @override
@@ -106,96 +199,173 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: 100,
-        ),
-        child: Column(
-          children: [
-            _buildProfileHeader(),
-            const SizedBox(height: 30),
-            _buildMenuItems(),
-            const SizedBox(height: 30),
-            _buildUpcomingBookings(),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: 100,
+              ),
+              child: Column(
+                children: [
+                  _buildProfileHeader(),
+                  const SizedBox(height: 30),
+                  _buildMenuItems(),
+                  const SizedBox(height: 30),
+                  _buildUpcomingBookings(),
+                ],
+              ),
+            ),
     );
   }
 
   Widget _buildProfileHeader() {
+    final user = _userData;
     return Column(
       children: [
         Stack(
+          clipBehavior: Clip.none,
           children: [
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.blue[100],
-              backgroundImage: FirebaseAuth.instance.currentUser?.photoURL != null
-                  ? NetworkImage(FirebaseAuth.instance.currentUser!.photoURL!)
-                  : null,
-              child: FirebaseAuth.instance.currentUser?.photoURL == null
-                  ? Text(
-                      (FirebaseAuth.instance.currentUser?.displayName ?? 'T')
-                              .isNotEmpty
-                          ? (FirebaseAuth.instance.currentUser?.displayName ??
-                                  'T')[0]
-                              .toUpperCase()
-                          : 'T',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[900],
-                      ),
-                    )
-                  : null,
-            ),
-            if (_isUploading)
-              Positioned.fill(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.black45,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
+            // Cover Photo
+            Stack(
+              children: [
+                GestureDetector(
+                  onTap: _isUploading ? null : () => _pickAndUploadImage(isCover: true),
+                  child: Container(
+                    height: 180,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A2642),
+                      borderRadius: BorderRadius.circular(16),
+                      image: user?.coverPhoto.isNotEmpty == true
+                          ? DecorationImage(
+                              image: NetworkImage(user!.coverPhoto),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: user?.coverPhoto.isEmpty == true
+                        ? Center(
+                            child: Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: Colors.white.withOpacity(0.3),
+                              size: 40,
+                            ),
+                          )
+                        : null,
                   ),
                 ),
-              ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: _isUploading ? null : _pickAndUploadImage,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.amber,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFF0A1628),
-                        width: 2,
+                // Camera button for Cover Photo
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: _isUploading ? null : () => _pickAndUploadImage(isCover: true),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_outlined,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 16,
-                    ),
                   ),
+                ),
+              ],
+            ),
+            // Profile Photo
+            Positioned(
+              bottom: -50,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Stack(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF0A1628),
+                          width: 4,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.blue[100],
+                        backgroundImage: user?.profilePhoto.isNotEmpty == true
+                            ? NetworkImage(user!.profilePhoto)
+                            : null,
+                        child: user?.profilePhoto.isEmpty == true
+                            ? Text(
+                                (user?.displayName ?? 'T').isNotEmpty
+                                    ? (user?.displayName ?? 'T')[0].toUpperCase()
+                                    : 'T',
+                                style: TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue[900],
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    if (_isUploading)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.black45,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: _isUploading ? null : () => _pickAndUploadImage(isCover: false),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF0A1628),
+                                width: 2,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 60),
         Text(
-          userProfile['name'],
+          user?.displayName ?? 'Traveler',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 24,
@@ -204,12 +374,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          userProfile['email'],
+          user?.email ?? 'No email',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.6),
+            color: Colors.white.withOpacity(0.6),
             fontSize: 14,
           ),
         ),
+        if (user?.bio.isNotEmpty == true) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              user!.bio,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -217,9 +401,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Icon(Icons.location_on, color: Colors.amber, size: 16),
             const SizedBox(width: 4),
             Text(
-              userProfile['location'],
+              'New York, USA',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.white.withOpacity(0.7),
                 fontSize: 13,
               ),
             ),
@@ -263,7 +447,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: Colors.white.withOpacity(0.6),
               fontSize: 11,
             ),
           ),
@@ -339,7 +523,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 Icon(
                   Icons.arrow_forward_ios,
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: Colors.white.withOpacity(0.4),
                   size: 14,
                 ),
               ],
@@ -351,48 +535,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildUpcomingBookings() {
-    if (upcomingBookings.isEmpty) {
-      return Column(
-        children: [
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(40),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A2642),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 60,
-                  color: Colors.white.withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'No Bookings Yet',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Start exploring and book your next adventure!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -405,520 +547,105 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ...upcomingBookings.map((booking) => _buildBookingCard(booking)),
+        StreamBuilder<List<Booking>>(
+          stream: userBookingsStream,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return _buildNoBookings();
+            }
+            return Column(
+              children: snapshot.data!.map((booking) => _buildFirestoreBookingCard(booking)).toList(),
+            );
+          },
+        ),
       ],
     );
   }
 
-  Widget _buildBookingCard(Map<String, dynamic> booking) {
-    final isReservation =
-        booking['type'] == 'Restaurant' || booking['type'] == 'Cafe';
-
-    return Dismissible(
-      key: Key(booking['name'] + booking['date']),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        return await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF1A2642),
-            title: const Text(
-              'Delete Booking',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: Text(
-              'Are you sure you want to delete "${booking['name']}"?',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+  Widget _buildNoBookings() {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(40),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2642),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 60,
+                color: Colors.white.withOpacity(0.3),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No Bookings Yet',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
+              const SizedBox(height: 8),
+              Text(
+                'Start exploring and book your next adventure!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 14,
                 ),
               ),
             ],
           ),
-        );
-      },
-      onDismissed: (direction) {
-        setState(() {
-          SavedBookings.bookings.remove(booking);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${booking['name']} deleted'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Undo',
-              textColor: Colors.white,
-              onPressed: () {
-                setState(() {
-                  SavedBookings.bookings.add(booking);
-                });
-              },
-            ),
-          ),
-        );
-      },
-      background: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(12),
         ),
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete, color: Colors.white, size: 30),
-      ),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => _showBookingDetails(booking),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A2642),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                    image: DecorationImage(
-                      image: NetworkImage(booking['image']),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          booking['name'],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Icon(
-                              isReservation ? Icons.restaurant : Icons.hotel,
-                              color: Colors.white.withValues(alpha: 0.5),
-                              size: 14,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                booking['date'],
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: booking['status'] == 'Confirmed'
-                                    ? Colors.green.withValues(alpha: 0.2)
-                                    : Colors.orange.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                booking['status'],
-                                style: TextStyle(
-                                  color: booking['status'] == 'Confirmed'
-                                      ? Colors.green
-                                      : Colors.orange,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            if (booking['price'] != null)
-                              Text(
-                                '\$${booking['price']}',
-                                style: const TextStyle(
-                                  color: Colors.amber,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            if (isReservation && booking['guests'] != null)
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.people,
-                                    color: Colors.amber,
-                                    size: 14,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${booking['guests']}',
-                                    style: const TextStyle(
-                                      color: Colors.amber,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      ],
     );
   }
 
-  void _showBookingDetails(Map<String, dynamic> booking) {
-    final isReservation =
-        booking['type'] == 'Restaurant' || booking['type'] == 'Cafe';
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A2642),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: SingleChildScrollView(
-            controller: scrollController,
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Booking Details',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    booking['image'],
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A2642),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.image_not_supported,
-                            color: Colors.white54,
-                            size: 50,
-                          ),
-                        ),
-                      );
-                    },
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A2642),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                : null,
-                            color: Colors.amber,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  booking['name'],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildDetailRow(Icons.calendar_today, 'Date', booking['date']),
-                const SizedBox(height: 12),
-                _buildDetailRow(
-                  isReservation ? Icons.restaurant : Icons.hotel,
-                  'Type',
-                  booking['type'],
-                ),
-                const SizedBox(height: 12),
-                _buildDetailRow(
-                  Icons.check_circle,
-                  'Status',
-                  booking['status'],
-                ),
-                if (booking['price'] != null) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    Icons.attach_money,
-                    'Total Price',
-                    '\$${booking['price']}',
-                  ),
-                ],
-                if (booking['guests'] != null) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    Icons.people,
-                    'Guests',
-                    '${booking['guests']} people',
-                  ),
-                ],
-                if (booking['rooms'] != null) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    Icons.meeting_room,
-                    'Rooms',
-                    '${booking['rooms']} room(s)',
-                  ),
-                ],
-                if (booking['customerName'] != null) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    Icons.person,
-                    'Customer Name',
-                    booking['customerName'],
-                  ),
-                ],
-                if (booking['customerEmail'] != null) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    Icons.email,
-                    'Email',
-                    booking['customerEmail'],
-                  ),
-                ],
-                if (booking['customerPhone'] != null) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    Icons.phone,
-                    'Phone',
-                    booking['customerPhone'],
-                  ),
-                ],
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showUpdateBookingDialog(booking);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.edit,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        label: const Text(
-                          'Update',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showDeleteConfirmation(booking);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.delete,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        label: const Text(
-                          'Delete',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.3),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Close',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(IconData icon, String label, String value) {
+  Widget _buildFirestoreBookingCard(Booking booking) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A1628),
-        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFF1A2642),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.amber, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
+      child: ListTile(
+        leading: const Icon(Icons.hotel, color: Colors.amber),
+        title: Text(
+          booking.tripId,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          'Date: ${booking.travelDate.day}/${booking.travelDate.month}/${booking.travelDate.year} - \$${booking.totalPrice}',
+          style: TextStyle(color: Colors.white.withOpacity(0.6)),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(6),
           ),
-        ],
+          child: Text(
+            booking.status,
+            style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+        ),
       ),
     );
   }
+
+
 
   void _showEditProfileDialog(BuildContext context) {
-    final nameController = TextEditingController(text: userProfile['name']);
-    final emailController = TextEditingController(text: userProfile['email']);
-    final phoneController = TextEditingController(text: userProfile['phone']);
-    final locationController = TextEditingController(
-      text: userProfile['location'],
-    );
+    if (_userData == null) return;
+    final nameController = TextEditingController(text: _userData!.displayName);
+    final bioController = TextEditingController(text: _userData!.bio);
+    final roleController = TextEditingController(text: _userData!.role);
 
     showDialog(
       context: context,
@@ -938,11 +665,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: InputDecoration(
                   labelText: 'Name',
                   labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: Colors.white.withOpacity(0.6),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.white.withOpacity(0.3),
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -954,16 +681,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: emailController,
+                controller: bioController,
                 style: const TextStyle(color: Colors.white),
+                maxLines: 3,
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Bio',
                   labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: Colors.white.withOpacity(0.6),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.white.withOpacity(0.3),
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -975,37 +703,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: phoneController,
+                controller: roleController,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: 'Phone',
+                  labelText: 'Role (e.g., Traveler, Explorer)',
                   labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: Colors.white.withOpacity(0.6),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.amber),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: locationController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Location',
-                  labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.white.withOpacity(0.3),
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -1023,199 +730,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+              style: TextStyle(color: Colors.white.withOpacity(0.7)),
             ),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                userProfile['name'] = nameController.text;
-                userProfile['email'] = emailController.text;
-                userProfile['phone'] = phoneController.text;
-                userProfile['location'] = locationController.text;
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Profile updated successfully!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+            onPressed: () async {
+              try {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user != null) {
+                  await _firestoreService.updateUserProfile(user.uid, {
+                    'displayName': nameController.text,
+                    'bio': bioController.text,
+                    'role': roleController.text,
+                  });
+                  await user.updateDisplayName(nameController.text);
+                  await user.reload();
+                  await _fetchUserData();
+                }
+                if (context.mounted) Navigator.pop(context);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profile updated successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to update profile: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Save', style: TextStyle(color: Colors.amber)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDeleteConfirmation(Map<String, dynamic> booking) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2642),
-        title: const Text(
-          'Delete Booking',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Text(
-          'Are you sure you want to delete the booking for "${booking['name']}"?',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                SavedBookings.bookings.remove(booking);
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Booking deleted successfully'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showUpdateBookingDialog(Map<String, dynamic> booking) {
-    final dateController = TextEditingController(text: booking['date']);
-    final guestsController = TextEditingController(
-      text:
-          booking['guests']?.toString() ?? booking['rooms']?.toString() ?? '2',
-    );
-    final statusController = TextEditingController(text: booking['status']);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2642),
-        title: const Text(
-          'Update Booking',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: dateController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Date',
-                  labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.amber),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: guestsController,
-                style: const TextStyle(color: Colors.white),
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: booking['guests'] != null ? 'Guests' : 'Rooms',
-                  labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.amber),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: statusController.text,
-                dropdownColor: const Color(0xFF1A2642),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Status',
-                  labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.amber),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                items: ['Confirmed', 'Pending', 'Cancelled']
-                    .map(
-                      (status) =>
-                          DropdownMenuItem(value: status, child: Text(status)),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    statusController.text = value;
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                booking['date'] = dateController.text;
-                booking['status'] = statusController.text;
-                if (booking['guests'] != null) {
-                  booking['guests'] = int.tryParse(guestsController.text) ?? 2;
-                } else if (booking['rooms'] != null) {
-                  booking['rooms'] = int.tryParse(guestsController.text) ?? 1;
-                }
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Booking updated successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            child: const Text('Update', style: TextStyle(color: Colors.amber)),
           ),
         ],
       ),
@@ -1237,7 +789,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+              style: TextStyle(color: Colors.white.withOpacity(0.7)),
             ),
           ),
           TextButton(

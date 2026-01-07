@@ -9,7 +9,7 @@ class StorageService {
   // Returns the download URL
   Future<String> uploadProfileImage(String userId, Uint8List imageBytes, String extension) async {
     try {
-      final ref = _storage.ref().child('user_profile_images/$userId/profile.$extension');
+      final ref = _storage.ref().child('users/$userId/profile.$extension');
       
       final uploadTask = ref.putData(
         imageBytes,
@@ -17,11 +17,25 @@ class StorageService {
       );
 
       final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-      
-      return downloadUrl;
+      return await snapshot.ref.getDownloadURL();
     } catch (e) {
-      throw 'Error uploading image: $e';
+      throw 'Error uploading profile image: $e';
+    }
+  }
+
+  Future<String> uploadCoverImage(String userId, Uint8List imageBytes, String extension) async {
+    try {
+      final ref = _storage.ref().child('users/$userId/cover.$extension');
+      
+      final uploadTask = ref.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/$extension'),
+      );
+
+      final snapshot = await uploadTask;
+      return await snapshot.ref.getDownloadURL();
+    } catch (e) {
+      throw 'Error uploading cover image: $e';
     }
   }
 }

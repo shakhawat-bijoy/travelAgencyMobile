@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
+import '../models/booking.dart';
 
 // Global state for saved bookings
 class SavedBookings {
@@ -33,6 +36,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
   int guests = 2;
   int rooms = 1;
   String selectedPaymentMethod = 'cash';
+  final FirestoreService _firestoreService = FirestoreService();
 
   // Customer information controllers
   final _formKey = GlobalKey<FormState>();
@@ -44,10 +48,17 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill with user data
-    _nameController.text = 'Heer';
-    _emailController.text = 'heer@email.com';
-    _phoneController.text = '+1 (555) 123-4567';
+    // Pre-fill with user data from Firestore
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _nameController.text = user.displayName ?? '';
+      _emailController.text = user.email ?? '';
+      // You could also fetch phone from Firestore if needed
+    }
   }
 
   @override
@@ -698,27 +709,39 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
       return;
     }
 
-    // Save booking data
-    final booking = {
-      'name': widget.hotelName ?? 'Star Pacific Sylhet',
-      'type': 'Hotel',
-      'date':
-          '${_formatDate(checkInDate!)}-${_formatDate(checkOutDate!).split('/')[0]}, ${checkOutDate!.year}',
-      'status': 'Confirmed',
-      'image':
-          widget.imageUrl ??
-          'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=300',
-      'price': ((widget.price ?? 120) * 2.5).toInt(),
-      'customerName': _nameController.text,
-      'customerEmail': _emailController.text,
-      'customerPhone': _phoneController.text,
-      'guests': guests,
-      'rooms': rooms,
-      'paymentMethod': selectedPaymentMethod,
-    };
+    // Create Booking model
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-    // Add to saved bookings
-    SavedBookings.addBooking(booking);
+    final bookingModel = Booking(
+      id: '', // Firestore will generate ID
+      userId: user.uid,
+      tripId: widget.hotelName ?? 'Unknown Hotel', // Using hotel name as ID for demo
+      bookingDate: DateTime.now(),
+      travelDate: checkInDate!,
+      totalPrice: (widget.price ?? 120) * 2.5,
+      peopleCount: guests,
+    );
+
+    // Save to Firestore
+    _firestoreService.createBooking(bookingModel).then((_) {
+      // Legacy support for local list if needed
+      final bookingMap = {
+        'name': widget.hotelName ?? 'Star Pacific Sylhet',
+        'type': 'Hotel',
+        'date': '${_formatDate(checkInDate!)}-${_formatDate(checkOutDate!).split('/')[0]}, ${checkOutDate!.year}',
+        'status': 'Confirmed',
+        'image': widget.imageUrl ?? 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=300',
+        'price': ((widget.price ?? 120) * 2.5).toInt(),
+        'customerName': _nameController.text,
+        'customerEmail': _emailController.text,
+        'customerPhone': _phoneController.text,
+        'guests': guests,
+        'rooms': rooms,
+        'paymentMethod': selectedPaymentMethod,
+      };
+      SavedBookings.addBooking(bookingMap);
+    });
 
     showDialog(
       context: context,
