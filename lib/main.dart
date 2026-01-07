@@ -12,8 +12,38 @@ import 'screens/profile_screen.dart';
 import 'screens/hotel_detail_screen.dart';
 import 'screens/hotel_booking_screen.dart';
 import 'screens/resort_details_screen.dart';
+import 'auth_wrapper.dart';
 
-void main() {
+import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Global error handling for synchronous Dart errors
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    if (kDebugMode) {
+      print('FLUTTER ERROR: ${details.exception}');
+    }
+  };
+
+  // Check if Firebase is already initialized to prevent duplicate app error
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
+      );
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('FIREBASE INITIALIZATION ERROR: $e');
+    }
+    // Continue execution to see if the app can still render basic UI
+  }
+
   runApp(const MyApp());
 }
 
@@ -42,7 +72,7 @@ class MyApp extends StatelessWidget {
           yearForegroundColor: WidgetStatePropertyAll(Colors.white),
         ),
       ),
-      home: const SplashScreen(),
+      home: const AuthWrapper(),
       routes: {
         '/splash': (context) => const SplashScreen(),
         '/onboarding': (context) => const OnboardingScreen(),

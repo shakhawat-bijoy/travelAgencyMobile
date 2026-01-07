@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import '../services/storage_service.dart';
+import '../services/auth_service.dart';
 import 'hotel_booking_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -9,12 +13,77 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final Map<String, dynamic> userProfile = {
-    'name': 'Heer',
-    'email': 'heer@email.com',
-    'phone': '+1 (555) 123-4567',
-    'location': 'New York, USA',
-  };
+  final AuthService _authService = AuthService();
+  final StorageService _storageService = StorageService();
+  bool _isUploading = false;
+
+  // Get user profile from Firebase Auth or use defaults
+  Map<String, dynamic> get userProfile {
+    final user = FirebaseAuth.instance.currentUser;
+    return {
+      'name': user?.displayName ?? 'Traveler',
+      'email': user?.email ?? 'No email',
+      'phone': user?.phoneNumber ?? '+1 (555) 123-4567',
+      'location': 'New York, USA', // Location is not stored in Auth, keep mock or fetch from Firestore if implemented
+      'photoURL': user?.photoURL,
+    };
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 75,
+      );
+
+      if (image == null) return;
+
+      setState(() => _isUploading = true);
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw 'user not logged in';
+
+      final bytes = await image.readAsBytes();
+      final extension = image.name.split('.').last;
+
+      // Upload to Storage
+      final downloadUrl = await _storageService.uploadProfileImage(
+        user.uid,
+        bytes,
+        extension,
+      );
+
+      // Update Auth Profile
+      await user.updatePhotoURL(downloadUrl);
+      await user.reload();
+
+      setState(() {
+        _isUploading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile picture updated!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update profile picture: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   List<Map<String, dynamic>> get upcomingBookings {
     return SavedBookings.bookings;
@@ -65,51 +134,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
             CircleAvatar(
               radius: 50,
               backgroundColor: Colors.blue[100],
-              child: ClipOval(
-                child: Image.network(
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 100,
-                      height: 100,
-                      color: Colors.blue[100],
-                      child: const Icon(
-                        Icons.person,
-                        size: 50,
-                        color: Colors.white,
+              backgroundImage: FirebaseAuth.instance.currentUser?.photoURL != null
+                  ? NetworkImage(FirebaseAuth.instance.currentUser!.photoURL!)
+                  : null,
+              child: FirebaseAuth.instance.currentUser?.photoURL == null
+                  ? Text(
+                      (FirebaseAuth.instance.currentUser?.displayName ?? 'T')
+                              .isNotEmpty
+                          ? (FirebaseAuth.instance.currentUser?.displayName ??
+                                  'T')[0]
+                              .toUpperCase()
+                          : 'T',
+                      style: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[900],
                       ),
-                    );
-                  },
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      width: 100,
-                      height: 100,
-                      color: Colors.blue[100],
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                              : null,
-                          color: Colors.amber,
-                        ),
-                      ),
-                    );
-                  },
+                    )
+                  : null,
+            ),
+            if (_isUploading)
+              Positioned.fill(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.black45,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
                 ),
               ),
-            ),
             Positioned(
               bottom: 0,
               right: 0,
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
-                  onTap: () => _showEditProfileDialog(context),
+                  onTap: _isUploading ? null : _pickAndUploadImage,
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
@@ -1179,9 +1241,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/login');
+              try {
+                await _authService.signOut();
+                if (mounted) {
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error signing out: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Logout', style: TextStyle(color: Colors.red)),
           ),

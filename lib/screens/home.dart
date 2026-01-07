@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' as import_firebase_auth;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -130,6 +131,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
+    final user = import_firebase_auth.FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName ?? 'Traveler';
+    final firstLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'T';
+
     return Padding(
       padding: const EdgeInsets.all(18),
       child: Row(
@@ -138,16 +143,21 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: 40,
             blur: 10,
             padding: const EdgeInsets.all(2),
-            child: const CircleAvatar(
+            child: CircleAvatar(
               radius: 26,
               backgroundColor: Colors.transparent,
-              child: Text(
-                'M',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              backgroundImage: user?.photoURL != null 
+                  ? NetworkImage(user!.photoURL!) 
+                  : null,
+              child: user?.photoURL == null 
+                  ? Text(
+                      firstLetter,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ) 
+                  : null,
             ),
           ),
           const SizedBox(width: 12),
@@ -156,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hi Heer',
+                  'Hi $displayName',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: 14,

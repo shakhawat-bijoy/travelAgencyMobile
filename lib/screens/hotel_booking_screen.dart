@@ -509,10 +509,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
               onPrimary: Colors.white,
               surface: Color(0xFF1A2642),
               onSurface: Colors.white,
-              background: Color(0xFF0A1628),
-              onBackground: Colors.white,
             ),
-            dialogBackgroundColor: const Color(0xFF1A2642),
             textTheme: const TextTheme(
               headlineMedium: TextStyle(color: Colors.white),
               titleMedium: TextStyle(color: Colors.white),
@@ -562,7 +559,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(foregroundColor: Colors.blue),
-            ),
+            ), dialogTheme: DialogThemeData(backgroundColor: const Color(0xFF1A2642)),
           ),
           child: child!,
         );
