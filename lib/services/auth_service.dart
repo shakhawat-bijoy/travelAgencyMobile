@@ -93,4 +93,17 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+
+  // Password Reset
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      if (kDebugMode) print('FIREBASE RESET ERROR: ${e.code} - ${e.message}');
+      throw e.message ?? 'An error occurred during password reset';
+    } catch (e) {
+      if (kDebugMode) print('GENERAL RESET ERROR: $e');
+      throw e.toString();
+    }
+  }
 }

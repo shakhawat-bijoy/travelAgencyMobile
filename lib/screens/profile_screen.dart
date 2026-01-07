@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 import '../services/auth_service.dart';
@@ -75,73 +76,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (user == null) throw 'user not logged in';
 
       final bytes = await image.readAsBytes();
-      final extension = image.name.split('.').last;
+      // Robust extension detection
+      String extension = 'jpg';
+      if (image.name.contains('.')) {
+        extension = image.name.split('.').last.toLowerCase();
+      } else if (image.mimeType != null) {
+        extension = image.mimeType!.split('/').last;
+      }
+
+      if (kDebugMode) print('Starting upload for ${isCover ? 'cover' : 'profile'} photo: ${image.name} ($extension)');
 
       String downloadUrl;
-      if (isCover) {
-        downloadUrl = await _storageService.uploadCoverImage(
-          user.uid,
-          bytes,
-          extension,
-        );
+      try {
+        if (isCover) {
+          downloadUrl = await _storageService.uploadCoverImage(
+            user.uid,
+            bytes,
+            extension,
+          );
 
-        // Optimistic UI update
-        if (mounted) {
-          setState(() {
-            _userData = UserModel(
-              uid: _userData?.uid ?? user.uid,
-              email: _userData?.email ?? user.email ?? '',
-              displayName: _userData?.displayName ?? user.displayName ?? '',
-              profilePhoto: _userData?.profilePhoto ?? '',
-              coverPhoto: downloadUrl,
-              bio: _userData?.bio ?? '',
-              role: _userData?.role ?? 'user',
-              savedTrips: _userData?.savedTrips ?? [],
-            );
-          });
+          // Optimistic UI update
+          if (mounted) {
+            setState(() {
+              _userData = UserModel(
+                uid: _userData?.uid ?? user.uid,
+                email: _userData?.email ?? user.email ?? '',
+                displayName: _userData?.displayName ?? user.displayName ?? '',
+                profilePhoto: _userData?.profilePhoto ?? '',
+                coverPhoto: downloadUrl,
+                bio: _userData?.bio ?? '',
+                role: _userData?.role ?? 'user',
+                savedTrips: _userData?.savedTrips ?? [],
+              );
+            });
+          }
+
+          // Parallel updates
+          await Future.wait([
+            _firestoreService.updateUserProfile(user.uid, {'coverPhoto': downloadUrl}).catchError((e) {
+              if (kDebugMode) print('Non-fatal error updating cover photo in Firestore: $e');
+              return null;
+            }),
+          ]);
+        } else {
+          downloadUrl = await _storageService.uploadProfileImage(
+            user.uid,
+            bytes,
+            extension,
+          );
+
+          // Optimistic UI update
+          if (mounted) {
+            setState(() {
+              _userData = UserModel(
+                uid: _userData?.uid ?? user.uid,
+                email: _userData?.email ?? user.email ?? '',
+                displayName: _userData?.displayName ?? user.displayName ?? '',
+                profilePhoto: downloadUrl,
+                coverPhoto: _userData?.coverPhoto ?? '',
+                bio: _userData?.bio ?? '',
+                role: _userData?.role ?? 'user',
+                savedTrips: _userData?.savedTrips ?? [],
+              );
+            });
+          }
+
+          // Parallel updates
+          await Future.wait([
+            user.updatePhotoURL(downloadUrl).then((_) => user.reload()).catchError((e) {
+              if (kDebugMode) print('Non-fatal error updating Auth photoURL: $e');
+              return null;
+            }),
+            _firestoreService.updateUserProfile(user.uid, {'profilePhoto': downloadUrl}).catchError((e) {
+              if (kDebugMode) print('Non-fatal error updating profile photo in Firestore: $e');
+              return null;
+            }),
+          ]);
         }
-
-        // Parallel updates
-        await Future.wait([
-          _firestoreService.updateUserProfile(user.uid, {'coverPhoto': downloadUrl}).catchError((e) {
-            print('Non-fatal error updating cover photo in Firestore: $e');
-            return null;
-          }),
-        ]);
-      } else {
-        downloadUrl = await _storageService.uploadProfileImage(
-          user.uid,
-          bytes,
-          extension,
-        );
-
-        // Optimistic UI update
-        if (mounted) {
-          setState(() {
-            _userData = UserModel(
-              uid: _userData?.uid ?? user.uid,
-              email: _userData?.email ?? user.email ?? '',
-              displayName: _userData?.displayName ?? user.displayName ?? '',
-              profilePhoto: downloadUrl,
-              coverPhoto: _userData?.coverPhoto ?? '',
-              bio: _userData?.bio ?? '',
-              role: _userData?.role ?? 'user',
-              savedTrips: _userData?.savedTrips ?? [],
-            );
-          });
-        }
-
-        // Parallel updates
-        await Future.wait([
-          user.updatePhotoURL(downloadUrl).then((_) => user.reload()).catchError((e) {
-            print('Non-fatal error updating Auth photoURL: $e');
-            return null;
-          }),
-          _firestoreService.updateUserProfile(user.uid, {'profilePhoto': downloadUrl}).catchError((e) {
-            print('Non-fatal error updating profile photo in Firestore: $e');
-            return null;
-          }),
-        ]);
+      } catch (e) {
+        if (kDebugMode) print('FIREBASE STORAGE UPLOAD ERROR: $e');
+        rethrow;
       }
 
       // No need to await full refetch if we updated optimistically, 
