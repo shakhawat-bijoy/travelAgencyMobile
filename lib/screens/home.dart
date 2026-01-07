@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart' as import_firebase_auth;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -131,94 +132,115 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
-    final user = import_firebase_auth.FirebaseAuth.instance.currentUser;
-    final displayName = user?.displayName ?? 'Traveler';
-    final firstLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'T';
+    final currentUser = import_firebase_auth.FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return const SizedBox.shrink();
 
-    return Padding(
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        children: [
-          _glass(
-            borderRadius: 40,
-            blur: 10,
-            padding: const EdgeInsets.all(2),
-            child: CircleAvatar(
-              radius: 26,
-              backgroundColor: Colors.transparent,
-              backgroundImage: user?.photoURL != null 
-                  ? NetworkImage(user!.photoURL!) 
-                  : null,
-              child: user?.photoURL == null 
-                  ? Text(
-                      firstLetter,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ) 
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hi $displayName',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 14,
-                  ),
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        // Fallback to Auth data if Firestore is loading or missing
+        String displayName = currentUser.displayName ?? 'Traveler';
+        String? photoURL = currentUser.photoURL;
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data();
+          if (data != null) {
+            displayName = data['displayName'] ?? displayName;
+            photoURL = data['profilePhoto'] ?? photoURL;
+          }
+        }
+
+        final firstLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'T';
+
+        return Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              _glass(
+                borderRadius: 40,
+                blur: 10,
+                padding: const EdgeInsets.all(2),
+                child: CircleAvatar(
+                  radius: 26,
+                  backgroundColor: Colors.blue[900]?.withOpacity(0.2),
+                  backgroundImage: (photoURL != null && photoURL.isNotEmpty)
+                      ? NetworkImage(photoURL)
+                      : null,
+                  child: (photoURL == null || photoURL.isEmpty)
+                      ? Text(
+                          firstLetter,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
                 ),
-                const SizedBox(height: 2),
-                Row(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: const Text(
-                        'Find your next adventure',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    Text(
+                      'Hi $displayName',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    _glass(
-                      borderRadius: 12,
-                      blur: 6,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            color: Colors.white.withOpacity(0.85),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Milano',
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: const Text(
+                            'Find your next adventure',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 12,
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 6),
+                        _glass(
+                          borderRadius: 12,
+                          blur: 6,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.location_on,
+                                color: Colors.white.withOpacity(0.85),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Milano',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
